@@ -16,10 +16,6 @@ The Agentic Toolbox is a TypeScript library that provides modular AI agent compo
 
 Note: Tests are not yet implemented (test script exits with error).
 
-## Requirements
-
-Before implementing any feature or request first review the requirements in the (`/requirements`) directory for any relivant requirements.   First analysis the relivant requirements for any additional insights or requirements not mentioned by the user. 
-
 ## Architecture
 
 The project uses a standard TypeScript library structure:
@@ -35,9 +31,13 @@ TypeScript configuration:
 
 ## Development Requirements
 
+Before implementing any feature or request first review the requirements in the (`/requirements`) directory for any relivant requirements.   First analysis the relivant requirements for any additional insights or requirements not mentioned by the user. 
+
 - Node.js >= 16.0.0
 - TypeScript compilation required for execution
 - Uses nodemon for development hot reload with ts-node
+
+Anytime a new example is created in the examples folder make sure to add it to the examples section of the readme.
 
 ## Package Information
 
