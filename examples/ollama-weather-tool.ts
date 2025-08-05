@@ -106,9 +106,7 @@ const weatherTool: Tool = {
 async function testWeatherTool() {
 	console.log("Testing Ollama Weather Tool with Chat Completion API...\n");
 
-	const ollama = new OllamaProvider({
-		host: "http://127.0.0.1:11434",
-	});
+	const ollama = new OllamaProvider();
 
 	// Test prompts
 	const prompts = [
