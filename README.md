@@ -46,6 +46,7 @@ npx ts-node examples/[example-name].ts
 ### Available Examples
 
 - **`ollama-simple.ts`** - Basic usage of the Ollama provider for text generation
+- **`ollama-weather-tool.ts`** - Demonstrates tool calling with Ollama using a weather tool with Zod validation
 
 #### Ollama Example Prerequisites
 
