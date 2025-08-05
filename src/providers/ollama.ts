@@ -6,7 +6,6 @@ import type {
   ChatCompletionOptions,
   ChatCompletionResponse,
   Message,
-  Tool,
   ToolCall
 } from '../interfaces/provider';
 
@@ -23,13 +22,6 @@ export class OllamaProvider implements LLMProvider {
     });
   }
 
-  /**
-   * Get the underlying Ollama client instance for advanced usage
-   * such as tool calling or other Ollama-specific features
-   */
-  getClient(): Ollama {
-    return this.client;
-  }
 
   async generateText(options: TextGenerationOptions): Promise<TextGenerationResponse> {
     const { model, prompt, systemPrompt } = options;
