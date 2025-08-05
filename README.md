@@ -47,6 +47,7 @@ npx ts-node examples/[example-name].ts
 
 - **`ollama-simple.ts`** - Basic usage of the Ollama provider for text generation
 - **`ollama-weather-tool.ts`** - Demonstrates tool calling with Ollama using a weather tool with Zod validation
+- **`ollama-chat-completion.ts`** - Shows the new chat completion API with multi-turn conversations and tool calling
 
 #### Ollama Example Prerequisites
 
