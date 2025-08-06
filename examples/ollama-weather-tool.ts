@@ -1,6 +1,6 @@
-import { OllamaProvider } from "../src/sdk";
+import { OllamaProvider, executeToolLoop } from "../src/sdk";
 import { z } from "zod";
-import type { Message, Tool } from "../src/sdk";
+import type { Tool } from "../src/sdk";
 import dotenv from "dotenv";
 
 // Load environment variables from .env file
@@ -119,33 +119,13 @@ async function testWeatherTool() {
 		console.log(`\n📝 User: ${prompt}`);
 
 		try {
-			// First call: Get tool calls from the model using chat completion API
 			console.log("🤖 Analyzing request...");
 
-			const initialResponse = await ollama.generateChatCompletion({
+			const result = await executeToolLoop(ollama, {
 				model: "qwen3:30b",
 				messages: [{ role: "user", content: prompt }],
 				tools: [weatherTool],
-			});
-
-			if (initialResponse.toolCalls && initialResponse.toolCalls.length > 0) {
-				console.log(
-					"🔧 Tool calls detected:",
-					initialResponse.toolCalls.length,
-				);
-
-				// Build conversation history
-				const messages: Message[] = [
-					{ role: "user", content: prompt },
-					{
-						role: "assistant",
-						content: initialResponse.text,
-						toolCalls: initialResponse.toolCalls,
-					},
-				];
-
-				// Process each tool call
-				for (const toolCall of initialResponse.toolCalls) {
+				onToolCall: async (toolCall) => {
 					console.log(`\n  Calling: ${toolCall.name}`);
 					console.log(`  Arguments:`, toolCall.arguments);
 
@@ -157,43 +137,18 @@ async function testWeatherTool() {
 						const weatherData = await weatherAPIHandler(params);
 
 						console.log(`  ✅ Weather data retrieved:`, weatherData);
-
-						// Add tool result to conversation
-						messages.push({
-							role: "tool",
-							content: JSON.stringify(weatherData),
-							toolCallId: toolCall.id,
-						});
+						return weatherData;
 					} catch (error) {
 						console.error(`  ❌ Validation error:`, error);
-
-						// Add error to conversation
-						messages.push({
-							role: "tool",
-							content: JSON.stringify({ error: "Invalid parameters" }),
-							toolCallId: toolCall.id,
-						});
+						return { error: "Invalid parameters" };
 					}
-				}
+				},
+			});
 
-				// Get final response with tool results
-				console.log("\n🤖 Generating final response...");
-
-				const finalResponse = await ollama.generateChatCompletion({
-					model: "qwen3:30b",
-					messages: messages,
-				});
-
-				console.log("\n💬 Assistant:", finalResponse.text);
-
-				if (finalResponse.usage) {
-					console.log(
-						`\n📊 Total tokens used: ${finalResponse.usage.totalTokens}`,
-					);
-				}
-			} else {
-				// No tool calls, just a regular response
-				console.log("💬 Assistant:", initialResponse.text);
+			console.log("\n💬 Assistant:", result.finalResponse);
+			
+			if (result.toolCallCount > 0) {
+				console.log(`🔧 Tool calls made: ${result.toolCallCount}`);
 			}
 		} catch (error) {
 			console.error("\n❌ Error:", error);
