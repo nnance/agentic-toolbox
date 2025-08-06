@@ -1,23 +1,27 @@
-# AI Framework: Unified Text Generation Interface
+# AI SDK: Unified Text Generation Abstraction Layer
 
 ## Overview
+
 Create a simple abstraction layer that provides a common interface for text generation across Ollama, Anthropic, and OpenAI SDKs.
 
 ## Research Findings
 
 ### Ollama SDK
+
 - **Initialization**: `new Ollama({ host: 'http://127.0.0.1:11434' })`
 - **Generation**: `ollama.generate({ model, prompt, stream?, system?, format? })`
 - **Key Parameters**: model, prompt, stream, system, format
 - **Response**: Direct response object with generated text
 
-### Anthropic SDK  
+### Anthropic SDK
+
 - **Initialization**: `new Anthropic({ apiKey })`
 - **Generation**: `client.messages.create({ model, max_tokens, messages })`
 - **Key Parameters**: model, max_tokens, messages array with role/content
 - **Response**: `message.content` contains generated text, includes usage stats
 
 ### OpenAI SDK
+
 - **Initialization**: `new OpenAI({ apiKey })`
 - **Generation**: `client.chat.completions.create({ model, messages })`
 - **Key Parameters**: model, messages array with role/content
@@ -26,6 +30,7 @@ Create a simple abstraction layer that provides a common interface for text gene
 ## Core Interface Design
 
 ### Common Interface
+
 ```typescript
 interface TextGenerationOptions {
   model: string;
@@ -52,6 +57,7 @@ interface LLMProvider {
 ## Provider Implementation Strategy
 
 ### 1. Ollama Provider
+
 - Maps `prompt` → `prompt`
 - Maps `maxTokens` → internal parameter handling (Ollama doesn't have direct max_tokens)
 - Maps `systemPrompt` → `system`
@@ -59,7 +65,8 @@ interface LLMProvider {
 - Normalizes response to extract generated text
 - Usage stats may not be available
 
-### 2. Anthropic Provider  
+### 2. Anthropic Provider
+
 - Maps `prompt` → `messages: [{ role: 'user', content: prompt }]`
 - Maps `maxTokens` → `max_tokens`
 - Maps `systemPrompt` → system message in messages array or separate system parameter
@@ -68,6 +75,7 @@ interface LLMProvider {
 - Extracts usage statistics from response
 
 ### 3. OpenAI Provider
+
 - Maps `prompt` → `messages: [{ role: 'user', content: prompt }]`
 - Maps `maxTokens` → `max_tokens`
 - Maps `systemPrompt` → system message in messages array
@@ -76,9 +84,10 @@ interface LLMProvider {
 - Normalizes response from `completion.choices[0].message.content`
 - Extracts usage statistics from response
 
-## Framework Structure
+## Code Structure
+
 ```
-src/
+src/sdk/
 ├── interfaces/
 │   └── provider.ts          # Core interfaces (LLMProvider, Options, Response)
 ├── providers/
@@ -88,7 +97,7 @@ src/
 ├── factory/
 │   └── provider-factory.ts # Provider instantiation and configuration
 ├── errors/
-│   └── framework-errors.ts # Custom error classes
+│   └── sdk-errors.ts       # Custom error classes
 └── index.ts                # Main export
 ```
 
@@ -100,14 +109,14 @@ src/
 4. **Provider Factory Pattern**: Centralized provider instantiation with configuration management
 5. **Consistent Error Handling**: Unified error handling and custom error types
 6. **Usage Statistics**: Optional usage tracking where supported by providers
-7. **Streaming Support**: Framework-level streaming abstraction (future enhancement)
 
 ## Configuration Strategy
 
 ### Provider Configuration
+
 ```typescript
 interface ProviderConfig {
-  type: 'ollama' | 'anthropic' | 'openai';
+  type: "ollama" | "anthropic" | "openai";
   apiKey?: string;
   baseUrl?: string;
   defaultModel?: string;
@@ -115,17 +124,18 @@ interface ProviderConfig {
 ```
 
 ### Factory Usage
+
 ```typescript
 const provider = ProviderFactory.create({
-  type: 'anthropic',
+  type: "anthropic",
   apiKey: process.env.ANTHROPIC_API_KEY,
-  defaultModel: 'claude-sonnet-4-20250514'
+  defaultModel: "claude-sonnet-4-20250514",
 });
 
 const response = await provider.generateText({
-  model: 'claude-sonnet-4-20250514',
-  prompt: 'Hello, world!',
-  maxTokens: 100
+  model: "claude-sonnet-4-20250514",
+  prompt: "Hello, world!",
+  maxTokens: 100,
 });
 ```
 
@@ -140,15 +150,17 @@ const response = await provider.generateText({
 ## Dependencies
 
 ### Required Dependencies
+
 ```json
 {
   "ollama": "^0.5.0",
-  "@anthropic-ai/sdk": "^0.24.0", 
+  "@anthropic-ai/sdk": "^0.24.0",
   "openai": "^4.0.0"
 }
 ```
 
 ### Peer Dependencies
+
 These will be marked as peer dependencies to allow users to install only the providers they need.
 
 ## Implementation Priority
@@ -170,25 +182,28 @@ These will be marked as peer dependencies to allow users to install only the pro
 ## Chat Completions and Tool Calling
 
 ### Overview
-The framework supports both simple text generation and advanced chat completions with tool calling. The interface is designed to be simple for basic use cases while supporting complex agent workflows.
+
+The AI SDK supports both simple text generation and advanced chat completions with tool calling. The interface is designed to be simple for basic use cases while supporting complex agent workflows.
 
 ### Message Format
+
 ```typescript
 interface Message {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
-  toolCallId?: string;      // For tool response messages
-  toolCalls?: ToolCall[];   // For assistant messages requesting tool use
+  toolCallId?: string; // For tool response messages
+  toolCalls?: ToolCall[]; // For assistant messages requesting tool use
 }
 ```
 
 ### Tool Definition
+
 ```typescript
 interface Tool {
   name: string;
   description: string;
   parameters: {
-    type: 'object';
+    type: "object";
     properties: Record<string, any>;
     required?: string[];
   };
@@ -202,41 +217,47 @@ interface ToolCall {
 ```
 
 ### Extended Interfaces
+
 ```typescript
 // Extended options supporting both simple and chat modes
 interface ChatCompletionOptions extends TextGenerationOptions {
-  messages?: Message[];     // Use messages for chat mode (overrides prompt)
-  tools?: Tool[];          // Available tools for the model to use
+  messages?: Message[]; // Use messages for chat mode (overrides prompt)
+  tools?: Tool[]; // Available tools for the model to use
 }
 
 // Extended response with tool calling support
 interface ChatCompletionResponse extends TextGenerationResponse {
-  toolCalls?: ToolCall[];   // Tool calls requested by the model
+  toolCalls?: ToolCall[]; // Tool calls requested by the model
 }
 
 // Updated provider interface
 interface LLMProvider {
   // Simple text generation (backward compatible)
   generateText(options: TextGenerationOptions): Promise<TextGenerationResponse>;
-  
+
   // Chat completions with tool support
-  generateChatCompletion(options: ChatCompletionOptions): Promise<ChatCompletionResponse>;
+  generateChatCompletion(
+    options: ChatCompletionOptions
+  ): Promise<ChatCompletionResponse>;
 }
 ```
 
 ### Provider Mapping Strategy
 
 #### Ollama
+
 - Uses OpenAI-compatible `/v1/chat/completions` endpoint
 - Maps tools to OpenAI function format
 - Supports streaming with tool calls
 
 #### OpenAI
+
 - Native function calling support
 - Direct mapping of tool definitions
 - Handles parallel tool calls
 
 #### Anthropic
+
 - Maps to Claude's tool use format
 - Converts between function/tool terminology
 - Supports complex tool chaining
@@ -251,21 +272,22 @@ interface LLMProvider {
 ## Usage Examples
 
 ### Simple Text Generation (Unchanged)
+
 ```typescript
-import { ProviderFactory } from 'agentic-toolbox';
+import { ProviderFactory } from "agentic-toolbox";
 
 // Initialize provider
 const llm = ProviderFactory.create({
-  type: 'anthropic',
-  apiKey: process.env.ANTHROPIC_API_KEY
+  type: "anthropic",
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 // Generate text
 const response = await llm.generateText({
-  model: 'claude-sonnet-4-20250514',
-  prompt: 'Explain quantum computing in simple terms',
+  model: "claude-sonnet-4-20250514",
+  prompt: "Explain quantum computing in simple terms",
   maxTokens: 200,
-  systemPrompt: 'You are a helpful science teacher'
+  systemPrompt: "You are a helpful science teacher",
 });
 
 console.log(response.text);
@@ -273,41 +295,41 @@ console.log(`Used ${response.usage?.totalTokens} tokens`);
 ```
 
 ### Chat Completion
+
 ```typescript
 const response = await llm.generateChatCompletion({
-  model: 'gpt-4',
+  model: "gpt-4",
   messages: [
-    { role: 'system', content: 'You are a helpful assistant' },
-    { role: 'user', content: 'What is the capital of France?' }
-  ]
+    { role: "system", content: "You are a helpful assistant" },
+    { role: "user", content: "What is the capital of France?" },
+  ],
 });
 
 console.log(response.text); // "The capital of France is Paris."
 ```
 
 ### Tool Calling Example
+
 ```typescript
 // Define a weather tool
 const weatherTool: Tool = {
-  name: 'get_weather',
-  description: 'Get current weather for a location',
+  name: "get_weather",
+  description: "Get current weather for a location",
   parameters: {
-    type: 'object',
+    type: "object",
     properties: {
-      location: { type: 'string', description: 'City name' },
-      unit: { type: 'string', enum: ['celsius', 'fahrenheit'] }
+      location: { type: "string", description: "City name" },
+      unit: { type: "string", enum: ["celsius", "fahrenheit"] },
     },
-    required: ['location']
-  }
+    required: ["location"],
+  },
 };
 
 // Make request with tools
 const response = await llm.generateChatCompletion({
-  model: 'claude-sonnet-4-20250514',
-  messages: [
-    { role: 'user', content: 'What\'s the weather in Paris?' }
-  ],
-  tools: [weatherTool]
+  model: "claude-sonnet-4-20250514",
+  messages: [{ role: "user", content: "What's the weather in Paris?" }],
+  tools: [weatherTool],
 });
 
 // Handle tool calls
@@ -315,19 +337,27 @@ if (response.toolCalls) {
   for (const toolCall of response.toolCalls) {
     console.log(`Tool requested: ${toolCall.name}`);
     console.log(`Arguments: ${JSON.stringify(toolCall.arguments)}`);
-    
+
     // Execute tool and continue conversation
     const weatherData = await getWeather(toolCall.arguments);
-    
+
     const finalResponse = await llm.generateChatCompletion({
-      model: 'claude-sonnet-4-20250514',
+      model: "claude-sonnet-4-20250514",
       messages: [
-        { role: 'user', content: 'What\'s the weather in Paris?' },
-        { role: 'assistant', content: response.text, toolCalls: response.toolCalls },
-        { role: 'tool', content: JSON.stringify(weatherData), toolCallId: toolCall.id }
-      ]
+        { role: "user", content: "What's the weather in Paris?" },
+        {
+          role: "assistant",
+          content: response.text,
+          toolCalls: response.toolCalls,
+        },
+        {
+          role: "tool",
+          content: JSON.stringify(weatherData),
+          toolCallId: toolCall.id,
+        },
+      ],
     });
-    
+
     console.log(finalResponse.text); // Natural language response with weather info
   }
 }
@@ -336,9 +366,11 @@ if (response.toolCalls) {
 ## Tool Call Limiting
 
 ### Overview
+
 Implement a mechanism to limit the number of tool calls during chat completions to prevent infinite loops and control resource usage.
 
 ### Requirements
+
 - Add `maxToolCalls` parameter to ChatCompletionOptions (optional, default: 10)
 - Track tool call count during execution
 - Stop processing when limit is reached
@@ -346,36 +378,43 @@ Implement a mechanism to limit the number of tool calls during chat completions 
 - Support configuration at both provider and request level
 
 ### Interface Updates
+
 ```typescript
 interface ChatCompletionOptions {
   // ... existing properties
-  maxToolCalls?: number;  // Maximum number of tool calls allowed (default: 10)
+  maxToolCalls?: number; // Maximum number of tool calls allowed (default: 10)
 }
 
 interface ChatCompletionResponse {
   // ... existing properties
-  toolCallCount?: number;     // Number of tool calls made
-  maxToolCallsReached?: boolean;  // Indicates if limit was reached
+  toolCallCount?: number; // Number of tool calls made
+  maxToolCallsReached?: boolean; // Indicates if limit was reached
 }
 ```
 
 ### Provider Implementation Details
 
 #### 1. Tool Loop Handler Utility
+
 Create a reusable utility class for managing tool execution loops:
+
 - Track call count across multiple rounds of tool execution
 - Enforce limits before making new tool calls
 - Provide clear feedback when limits are reached
 
 #### 2. Provider-Specific Handling
+
 Each provider should:
+
 - Accept `maxToolCalls` in options
 - Track calls internally during execution
 - Stop requesting new tool calls when limit reached
 - Include count and limit status in response
 
 #### 3. Helper Functions
+
 Provide high-level helper functions for common patterns:
+
 - `executeToolLoop()`: Automatic tool execution with limit handling
 - `createToolResponse()`: Consistent tool response formatting
 - Error handling for exceeded limits
@@ -383,14 +422,18 @@ Provide high-level helper functions for common patterns:
 ### Usage Examples
 
 #### Basic Usage with Limit
+
 ```typescript
 const response = await llm.generateChatCompletion({
-  model: 'gpt-4',
+  model: "gpt-4",
   messages: [
-    { role: 'user', content: 'Calculate 25 * 4, then add 15, then divide by 5' }
+    {
+      role: "user",
+      content: "Calculate 25 * 4, then add 15, then divide by 5",
+    },
   ],
   tools: [calculatorTool],
-  maxToolCalls: 5  // Limit to 5 tool invocations
+  maxToolCalls: 5, // Limit to 5 tool invocations
 });
 
 if (response.maxToolCallsReached) {
@@ -399,6 +442,7 @@ if (response.maxToolCallsReached) {
 ```
 
 #### Using Helper Function
+
 ```typescript
 import { executeToolLoop } from 'agentic-toolbox/helpers';
 
@@ -425,6 +469,7 @@ console.log(result.finalResponse);
 ```
 
 #### Handling Different Limits
+
 ```typescript
 // No limit (undefined means no limit)
 const unlimitedResponse = await llm.generateChatCompletion({
@@ -453,6 +498,7 @@ const noToolsResponse = await llm.generateChatCompletion({
 ### Error Handling
 
 When the tool call limit is reached:
+
 1. The current response is returned (not an error)
 2. `maxToolCallsReached` flag is set to true
 3. `toolCallCount` indicates how many calls were made
@@ -461,11 +507,13 @@ When the tool call limit is reached:
 ### Testing Strategy
 
 1. **Unit Tests**
+
    - Test limit enforcement at boundaries (0, 1, 10, etc.)
    - Test count tracking accuracy
    - Test partial result handling
 
 2. **Integration Tests**
+
    - Test with each provider implementation
    - Test with real tool execution scenarios
    - Test helper function behavior
