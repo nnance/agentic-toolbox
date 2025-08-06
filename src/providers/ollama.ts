@@ -1,4 +1,8 @@
-import type { Message as OllamaMessage } from "ollama";
+import type {
+	ChatResponse,
+	Message as OllamaMessage,
+	Tool as OllamaTool,
+} from "ollama";
 import { Ollama } from "ollama";
 import type {
 	LLMProvider,
@@ -10,10 +14,99 @@ import type {
 	ChatCompletionResponse,
 	Message,
 } from "../interfaces/context";
-import type { ToolCall } from "../interfaces/tools";
+import type { Tool, ToolCall } from "../interfaces/tools";
 
 export interface OllamaConfig {
 	host?: string;
+}
+
+export function normalizeChatMessages(
+	options: ChatCompletionOptions,
+	messages?: Message[],
+): Message[] {
+	if (messages && messages.length > 0) {
+		return messages;
+	} else if (options.prompt) {
+		const chatMessages: Message[] = [];
+		if (options.systemPrompt) {
+			chatMessages.push({ role: "system", content: options.systemPrompt });
+		}
+		chatMessages.push({ role: "user", content: options.prompt });
+		return chatMessages;
+	} else {
+		throw new Error("Either messages or prompt must be provided");
+	}
+}
+
+export function chatMessagesToOllama(messages: Message[]): OllamaMessage[] {
+	return messages.map((msg) => {
+		const ollamaMsg: OllamaMessage = {
+			role: msg.role,
+			content: msg.content,
+		};
+
+		// Handle assistant messages with tool calls
+		if (msg.role === "assistant" && msg.toolCalls) {
+			ollamaMsg.tool_calls = msg.toolCalls.map((tc) => ({
+				id: tc.id,
+				type: "function",
+				function: {
+					name: tc.name,
+					arguments: tc.arguments,
+				},
+			}));
+		}
+
+		return ollamaMsg;
+	});
+}
+
+export function toolsToOllama(tools: Tool[]): OllamaTool[] {
+	return tools?.map((tool) => ({
+		type: "function" as const,
+		function: {
+			name: tool.name,
+			description: tool.description,
+			parameters: {
+				...tool.parameters,
+				properties: tool.parameters.properties
+					? Object.fromEntries(
+							Object.entries(tool.parameters.properties).map(([key, value]) => [
+								key,
+								typeof value === "object" && value !== null
+									? value
+									: { type: "string" },
+							]),
+						)
+					: {},
+			},
+		},
+	}));
+}
+
+export function extractToolCallsFromOllama(
+	response: ChatResponse,
+): ToolCall[] | undefined {
+	if (response.message.tool_calls && response.message.tool_calls.length > 0) {
+		return response.message.tool_calls.map((tc) => ({
+			id: `tool_${Math.random().toString(36).substring(2, 11)}`,
+			name: tc.function.name,
+			arguments: tc.function.arguments,
+		}));
+	}
+	return undefined;
+}
+
+export function calculateUsage(response: ChatResponse): {
+	promptTokens: number;
+	completionTokens: number;
+	totalTokens: number;
+} {
+	return {
+		promptTokens: response.prompt_eval_count || 0,
+		completionTokens: response.eval_count || 0,
+		totalTokens: (response.prompt_eval_count || 0) + (response.eval_count || 0),
+	};
 }
 
 export class OllamaProvider implements LLMProvider {
@@ -54,64 +147,13 @@ export class OllamaProvider implements LLMProvider {
 		const { model, messages, tools, maxTokens, maxToolCalls } = options;
 
 		// If messages are provided, use them; otherwise convert prompt to messages
-		let chatMessages: Message[];
-		if (messages && messages.length > 0) {
-			chatMessages = messages;
-		} else if (options.prompt) {
-			chatMessages = [];
-			if (options.systemPrompt) {
-				chatMessages.push({ role: "system", content: options.systemPrompt });
-			}
-			chatMessages.push({ role: "user", content: options.prompt });
-		} else {
-			throw new Error("Either messages or prompt must be provided");
-		}
+		const chatMessages = normalizeChatMessages(options, messages);
 
 		// Convert our Message format to Ollama's format
-		const ollamaMessages = chatMessages.map((msg) => {
-			const ollamaMsg: OllamaMessage = {
-				role: msg.role,
-				content: msg.content,
-			};
-
-			// Handle assistant messages with tool calls
-			if (msg.role === "assistant" && msg.toolCalls) {
-				ollamaMsg.tool_calls = msg.toolCalls.map((tc) => ({
-					id: tc.id,
-					type: "function",
-					function: {
-						name: tc.name,
-						arguments: tc.arguments,
-					},
-				}));
-			}
-
-			return ollamaMsg;
-		});
+		const ollamaMessages = chatMessagesToOllama(chatMessages);
 
 		// Convert our Tool format to Ollama's OpenAI-compatible format
-		const ollamaTools = tools?.map((tool) => ({
-			type: "function" as const,
-			function: {
-				name: tool.name,
-				description: tool.description,
-				parameters: {
-					...tool.parameters,
-					properties: tool.parameters.properties
-						? Object.fromEntries(
-								Object.entries(tool.parameters.properties).map(
-									([key, value]) => [
-										key,
-										typeof value === "object" && value !== null
-											? value
-											: { type: "string" },
-									],
-								),
-							)
-						: {},
-				},
-			},
-		}));
+		const ollamaTools = toolsToOllama(tools || []);
 
 		// Make the chat completion request
 		const response = await this.client.chat({
@@ -123,25 +165,10 @@ export class OllamaProvider implements LLMProvider {
 		});
 
 		// Extract tool calls if present
-		let toolCalls: ToolCall[] | undefined;
-		if (response.message.tool_calls && response.message.tool_calls.length > 0) {
-			toolCalls = response.message.tool_calls.map((tc) => ({
-				id: `tool_${Math.random().toString(36).substring(2, 11)}`,
-				name: tc.function.name,
-				arguments: tc.function.arguments,
-			}));
-		}
+		const toolCalls = extractToolCallsFromOllama(response);
 
 		// Calculate usage statistics
-		const usage =
-			response.prompt_eval_count || response.eval_count
-				? {
-						promptTokens: response.prompt_eval_count,
-						completionTokens: response.eval_count,
-						totalTokens:
-							(response.prompt_eval_count || 0) + (response.eval_count || 0),
-					}
-				: undefined;
+		const usage = calculateUsage(response);
 
 		// Add tool call limiting info if applicable
 		const result: ChatCompletionResponse = {
