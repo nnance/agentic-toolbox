@@ -1,4 +1,4 @@
-import { OllamaProvider } from "../src/providers/ollama";
+import { OllamaProvider } from "../src/sdk";
 
 async function testOllamaProvider() {
 	console.log("Testing Ollama Provider...\n");

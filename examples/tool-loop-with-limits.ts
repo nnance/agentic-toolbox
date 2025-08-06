@@ -1,6 +1,5 @@
-import { OllamaProvider } from "../src/providers/ollama";
-import type { Tool } from "../src/interfaces/tools";
-import { executeToolLoop } from "../src/helpers/tool-execution";
+import type { Tool } from "../src/sdk";
+import { OllamaProvider, executeToolLoop } from "../src/sdk";
 
 // Define multiple tools to demonstrate limit handling
 const mathTool: Tool = {

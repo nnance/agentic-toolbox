@@ -61,7 +61,7 @@ export class ToolLoopHandler {
 		provider: LLMProviderWithTools,
 		options: ToolLoopOptions,
 	): Promise<ToolLoopResult> {
-		if (!provider.generateText) {
+		if (!provider.generateChatCompletion) {
 			throw new Error("Provider does not support chat completions");
 		}
 
@@ -97,7 +97,7 @@ export class ToolLoopHandler {
 			}
 
 			// Make the chat completion request
-			currentResponse = await provider.generateText({
+			currentResponse = await provider.generateChatCompletion({
 				...options,
 				messages: this.messages,
 				maxToolCalls: this.maxToolCalls - this.toolCallCount, // Pass remaining calls

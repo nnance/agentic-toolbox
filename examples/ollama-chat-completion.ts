@@ -1,7 +1,5 @@
-import { OllamaProvider } from "../src/providers/ollama";
-import type { Message } from "../src/interfaces/context";
-import type { Tool } from "../src/interfaces/tools";
-import { executeToolLoop } from "../src/helpers/tool-execution";
+import type { Message, Tool } from "../src/sdk";
+import { OllamaProvider, executeToolLoop } from "../src/sdk";
 
 const model = "gpt-oss";
 
