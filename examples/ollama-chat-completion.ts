@@ -1,5 +1,9 @@
 import { OllamaProvider } from "../src/providers/ollama";
-import type { Tool, Message } from "../src/interfaces/provider";
+import type { Message } from "../src/interfaces/context";
+import type { Tool } from "../src/interfaces/tools";
+import { executeToolLoop } from "../src/helpers/tool-execution";
+
+const model = "gpt-oss";
 
 // Define a calculator tool
 const calculatorTool: Tool = {
@@ -63,7 +67,7 @@ async function demonstrateChatCompletion() {
 
 	try {
 		const response1 = await ollama.generateChatCompletion({
-			model: "qwen3:30b",
+			model,
 			messages: [
 				{ role: "system", content: "You are a helpful math tutor." },
 				{
@@ -90,7 +94,7 @@ async function demonstrateChatCompletion() {
 		];
 
 		const response2a = await ollama.generateChatCompletion({
-			model: "qwen3:30b",
+			model,
 			messages,
 		});
 
@@ -102,7 +106,7 @@ async function demonstrateChatCompletion() {
 		messages.push({ role: "user", content: "What is its population?" });
 
 		const response2b = await ollama.generateChatCompletion({
-			model: "qwen3:30b",
+			model,
 			messages,
 		});
 
@@ -112,8 +116,8 @@ async function demonstrateChatCompletion() {
 		console.error("Error:", error);
 	}
 
-	// Example 3: Tool calling
-	console.log("\n\n📝 Example 3: Tool Calling");
+	// Example 3: Tool calling (Manual approach)
+	console.log("\n\n📝 Example 3: Tool Calling (Manual)");
 	console.log("=====================================\n");
 
 	try {
@@ -122,7 +126,7 @@ async function demonstrateChatCompletion() {
 
 		// First request with tools
 		const response3a = await ollama.generateChatCompletion({
-			model: "qwen3:30b",
+			model,
 			messages: [{ role: "user", content: prompt }],
 			tools: [calculatorTool],
 		});
@@ -168,7 +172,7 @@ async function demonstrateChatCompletion() {
 
 			// Get final response
 			const response3b = await ollama.generateChatCompletion({
-				model: "qwen3:30b",
+				model,
 				messages,
 			});
 
@@ -180,13 +184,50 @@ async function demonstrateChatCompletion() {
 		console.error("Error:", error);
 	}
 
-	// Example 4: Using the prompt shorthand
-	console.log("\n\n📝 Example 4: Prompt Shorthand (Backward Compatible)");
+	// Example 4: Tool calling with automatic loop handling
+	console.log("\n\n📝 Example 4: Tool Calling with Auto Loop Handler");
+	console.log("===================================================\n");
+
+	try {
+		const prompt2 =
+			"Calculate 100 divided by 4, then multiply by 3, then subtract 10";
+		console.log("User:", prompt2);
+		console.log("\nUsing automatic tool loop with max 5 tool calls...");
+
+		const result = await executeToolLoop(ollama, {
+			model,
+			messages: [{ role: "user", content: prompt2 }],
+			tools: [calculatorTool],
+			maxToolCalls: 5,
+			onToolCall: async (toolCall) => {
+				console.log(`\n🔧 Auto-handling tool: ${toolCall.name}`);
+				console.log(`   Arguments:`, toolCall.arguments);
+
+				const calcResult = calculate(
+					toolCall.arguments as { operation: string; numbers: number[] },
+				);
+				console.log(`   Result: ${calcResult}`);
+
+				return { result: calcResult };
+			},
+		});
+
+		console.log("\nFinal Response:", result.finalResponse);
+		console.log(`Tool calls made: ${result.toolCallCount}`);
+		if (result.maxToolCallsReached) {
+			console.log("⚠️  Maximum tool call limit was reached!");
+		}
+	} catch (error) {
+		console.error("Error:", error);
+	}
+
+	// Example 5: Using the prompt shorthand
+	console.log("\n\n📝 Example 5: Prompt Shorthand (Backward Compatible)");
 	console.log("====================================================\n");
 
 	try {
 		const response4 = await ollama.generateChatCompletion({
-			model: "qwen3:30b",
+			model,
 			prompt: "Write a haiku about programming",
 			systemPrompt: "You are a creative poet who loves technology.",
 		});

@@ -1,6 +1,7 @@
 import { OllamaProvider } from "../src/providers/ollama";
 import { z } from "zod";
-import type { Tool, Message } from "../src/interfaces/provider";
+import type { Message } from "../src/interfaces/context";
+import type { Tool } from "../src/interfaces/tools";
 import dotenv from "dotenv";
 
 // Load environment variables from .env file

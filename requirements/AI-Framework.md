@@ -332,3 +332,146 @@ if (response.toolCalls) {
   }
 }
 ```
+
+## Tool Call Limiting
+
+### Overview
+Implement a mechanism to limit the number of tool calls during chat completions to prevent infinite loops and control resource usage.
+
+### Requirements
+- Add `maxToolCalls` parameter to ChatCompletionOptions (optional, default: 10)
+- Track tool call count during execution
+- Stop processing when limit is reached
+- Return partial results with indication that limit was reached
+- Support configuration at both provider and request level
+
+### Interface Updates
+```typescript
+interface ChatCompletionOptions {
+  // ... existing properties
+  maxToolCalls?: number;  // Maximum number of tool calls allowed (default: 10)
+}
+
+interface ChatCompletionResponse {
+  // ... existing properties
+  toolCallCount?: number;     // Number of tool calls made
+  maxToolCallsReached?: boolean;  // Indicates if limit was reached
+}
+```
+
+### Provider Implementation Details
+
+#### 1. Tool Loop Handler Utility
+Create a reusable utility class for managing tool execution loops:
+- Track call count across multiple rounds of tool execution
+- Enforce limits before making new tool calls
+- Provide clear feedback when limits are reached
+
+#### 2. Provider-Specific Handling
+Each provider should:
+- Accept `maxToolCalls` in options
+- Track calls internally during execution
+- Stop requesting new tool calls when limit reached
+- Include count and limit status in response
+
+#### 3. Helper Functions
+Provide high-level helper functions for common patterns:
+- `executeToolLoop()`: Automatic tool execution with limit handling
+- `createToolResponse()`: Consistent tool response formatting
+- Error handling for exceeded limits
+
+### Usage Examples
+
+#### Basic Usage with Limit
+```typescript
+const response = await llm.generateChatCompletion({
+  model: 'gpt-4',
+  messages: [
+    { role: 'user', content: 'Calculate 25 * 4, then add 15, then divide by 5' }
+  ],
+  tools: [calculatorTool],
+  maxToolCalls: 5  // Limit to 5 tool invocations
+});
+
+if (response.maxToolCallsReached) {
+  console.log(`Tool call limit reached after ${response.toolCallCount} calls`);
+}
+```
+
+#### Using Helper Function
+```typescript
+import { executeToolLoop } from 'agentic-toolbox/helpers';
+
+const result = await executeToolLoop(llm, {
+  model: 'claude-sonnet-4-20250514',
+  messages: [...],
+  tools: [weatherTool, calculatorTool],
+  maxToolCalls: 10,
+  onToolCall: async (toolCall) => {
+    // Execute the requested tool
+    switch (toolCall.name) {
+      case 'get_weather':
+        return await getWeather(toolCall.arguments);
+      case 'calculate':
+        return await calculate(toolCall.arguments);
+      default:
+        throw new Error(`Unknown tool: ${toolCall.name}`);
+    }
+  }
+});
+
+console.log(`Completed with ${result.toolCallCount} tool calls`);
+console.log(result.finalResponse);
+```
+
+#### Handling Different Limits
+```typescript
+// No limit (undefined means no limit)
+const unlimitedResponse = await llm.generateChatCompletion({
+  model: 'gpt-4',
+  messages: [...],
+  tools: [...]
+});
+
+// Very restrictive limit
+const singleCallResponse = await llm.generateChatCompletion({
+  model: 'gpt-4',
+  messages: [...],
+  tools: [...],
+  maxToolCalls: 1  // Only allow one tool call
+});
+
+// Zero means no tool calls allowed
+const noToolsResponse = await llm.generateChatCompletion({
+  model: 'gpt-4',
+  messages: [...],
+  tools: [...],
+  maxToolCalls: 0  // Tools defined but not allowed to be called
+});
+```
+
+### Error Handling
+
+When the tool call limit is reached:
+1. The current response is returned (not an error)
+2. `maxToolCallsReached` flag is set to true
+3. `toolCallCount` indicates how many calls were made
+4. Any pending tool requests are not executed
+
+### Testing Strategy
+
+1. **Unit Tests**
+   - Test limit enforcement at boundaries (0, 1, 10, etc.)
+   - Test count tracking accuracy
+   - Test partial result handling
+
+2. **Integration Tests**
+   - Test with each provider implementation
+   - Test with real tool execution scenarios
+   - Test helper function behavior
+
+3. **Edge Cases**
+   - Limit of 0 with tools defined
+   - Limit of 1 with multiple tools needed
+   - Reaching limit exactly
+   - Complex multi-step calculations
