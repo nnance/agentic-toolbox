@@ -28,5 +28,7 @@ export interface ChatCompletionResponse extends TextGenerationResponse {
 }
 
 export interface LLMProviderWithTools extends LLMProvider {
-	generateText(options: ChatCompletionOptions): Promise<ChatCompletionResponse>;
+	generateChatCompletion(
+		options: ChatCompletionOptions,
+	): Promise<ChatCompletionResponse>;
 }

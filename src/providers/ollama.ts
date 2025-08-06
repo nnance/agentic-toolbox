@@ -5,13 +5,13 @@ import type {
 } from "ollama";
 import { Ollama } from "ollama";
 import type {
-	LLMProvider,
 	TextGenerationOptions,
 	TextGenerationResponse,
 } from "../interfaces/provider";
 import type {
 	ChatCompletionOptions,
 	ChatCompletionResponse,
+	LLMProviderWithTools,
 	Message,
 } from "../interfaces/context";
 import type { Tool, ToolCall } from "../interfaces/tools";
@@ -109,7 +109,7 @@ export function calculateUsage(response: ChatResponse): {
 	};
 }
 
-export class OllamaProvider implements LLMProvider {
+export class OllamaProvider implements LLMProviderWithTools {
 	private client: Ollama;
 
 	constructor(config: OllamaConfig = {}) {
